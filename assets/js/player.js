@@ -1,23 +1,54 @@
+// assets/js/player.js
+
 let player;
 let currentTrack = 0;
 let progressInterval;
+let tracks = [];
+
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/uvpm2f3oq7b9g';
 
 const circle = document.querySelector('circle');
 const radius = 100;
 const circumference = 2 * Math.PI * radius;
 circle.style.strokeDasharray = circumference;
 
-// YouTube API calls this automatically when ready
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('player', {
-        height: '0',
-        width: '0',
-        videoId: tracks[currentTrack].id,
-        events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
-        }
+function sheetdbToTracks(data) {
+    return data.map(row => ({
+        id: row.id,
+        title: row.title,
+        duration: null
+    }));
+}
+
+let tracksLoaded = false;
+let ytReady = false;
+
+fetch(SHEETDB_API_URL)
+    .then(res => res.json())
+    .then(data => {
+        tracks = sheetdbToTracks(data);
+        tracksLoaded = true;
+        renderPlaylist();
+        tryInitPlayer();
     });
+
+window.onYouTubeIframeAPIReady = function() {
+    ytReady = true;
+    tryInitPlayer();
+};
+
+function tryInitPlayer() {
+    if (tracksLoaded && ytReady && tracks.length > 0 && !player) {
+        player = new YT.Player('player', {
+            height: '0',
+            width: '0',
+            videoId: tracks[currentTrack].id,
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
 }
 
 function onPlayerReady(event) {
@@ -35,7 +66,6 @@ function onPlayerStateChange(event) {
     }
     updatePlayPauseIcon();
 
-    // Auto-play next track when current ends
     if (event.data === YT.PlayerState.ENDED) {
         nextTrack();
     }
@@ -43,7 +73,7 @@ function onPlayerStateChange(event) {
 
 function updatePlayPauseIcon() {
     const icon = document.getElementById('playPauseIcon');
-    if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+    if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) {
         icon.className = 'fa fa-pause';
     } else {
         icon.className = 'fa fa-play';
@@ -51,13 +81,15 @@ function updatePlayPauseIcon() {
 }
 
 function togglePlay() {
-    const state = player.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-        player.pauseVideo();
-    } else {
-        player.playVideo();
+    if (player && typeof player.getPlayerState === 'function') {
+        const state = player.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+            player.pauseVideo();
+        } else {
+            player.playVideo();
+        }
+        setTimeout(updatePlayPauseIcon, 100);
     }
-    setTimeout(updatePlayPauseIcon, 100); // Wait for state to update
 }
 
 function nextTrack() {
@@ -72,9 +104,10 @@ function prevTrack() {
 
 function loadTrack(index) {
     currentTrack = index;
-    player.loadVideoById(tracks[currentTrack].id);
-    updateTrackUI(currentTrack);
-    updateDurationsInPlaylist();
+    if (player && typeof player.loadVideoById === 'function') {
+        player.loadVideoById(tracks[currentTrack].id);
+        updateTrackUI(currentTrack);
+    }
 }
 
 function updateTrackUI(index) {
@@ -133,7 +166,8 @@ function updateDurationsInPlaylist() {
 
     function loadNextDuration() {
         if (i >= tracks.length) {
-            loadTrack(currentIndex);
+            player.loadVideoById(tracks[currentIndex].id);
+            updateTrackUI(currentIndex);
             if (player && player.seekTo) {
                 player.seekTo(currentTime, true);
                 if (playerState === YT.PlayerState.PLAYING) {
@@ -205,8 +239,5 @@ function stopProgressUpdater() {
     }
 }
 
-// Initial playlist render
 renderPlaylist();
-
-// Initial icon update
 document.addEventListener('DOMContentLoaded', updatePlayPauseIcon);
