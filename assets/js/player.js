@@ -40,6 +40,11 @@ function onPlayerStateChange(event) {
         stopProgressUpdater();
     }
     updatePlayPauseIcon();
+
+    // Auto-play next track when current ends
+    if (event.data === YT.PlayerState.ENDED) {
+        nextTrack();
+    }
 }
 
 function updatePlayPauseIcon() {
