@@ -1,29 +1,54 @@
+// assets/js/player.js
+
 let player;
 let currentTrack = 0;
 let progressInterval;
+let tracks = [];
+
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/uvpm2f3oq7b9g';
 
 const circle = document.querySelector('circle');
 const radius = 100;
 const circumference = 2 * Math.PI * radius;
 circle.style.strokeDasharray = circumference;
 
-// const tracks = [
-//     { id: "kxopViU98Xo", title: "Starboy ft. Daft Punk", duration: null },
-//     { id: "M7lc1UVf-VE", title: "Random Track 2", duration: null },
-//     { id: "ScMzIvxBSi4", title: "Random Track 3", duration: null }
-// ];
+function sheetdbToTracks(data) {
+    return data.map(row => ({
+        id: row.id,
+        title: row.title,
+        duration: null
+    }));
+}
 
-// YouTube API calls this automatically when ready
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('player', {
-        height: '0',
-        width: '0',
-        videoId: tracksOld[currentTrack].id,
-        events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
-        }
+let tracksLoaded = false;
+let ytReady = false;
+
+fetch(SHEETDB_API_URL)
+    .then(res => res.json())
+    .then(data => {
+        tracks = sheetdbToTracks(data);
+        tracksLoaded = true;
+        renderPlaylist();
+        tryInitPlayer();
     });
+
+window.onYouTubeIframeAPIReady = function() {
+    ytReady = true;
+    tryInitPlayer();
+};
+
+function tryInitPlayer() {
+    if (tracksLoaded && ytReady && tracks.length > 0 && !player) {
+        player = new YT.Player('player', {
+            height: '0',
+            width: '0',
+            videoId: tracks[currentTrack].id,
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
 }
 
 function onPlayerReady(event) {
@@ -41,7 +66,6 @@ function onPlayerStateChange(event) {
     }
     updatePlayPauseIcon();
 
-    // Auto-play next track when current ends
     if (event.data === YT.PlayerState.ENDED) {
         nextTrack();
     }
@@ -49,7 +73,7 @@ function onPlayerStateChange(event) {
 
 function updatePlayPauseIcon() {
     const icon = document.getElementById('playPauseIcon');
-    if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+    if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) {
         icon.className = 'fa fa-pause';
     } else {
         icon.className = 'fa fa-play';
@@ -57,34 +81,37 @@ function updatePlayPauseIcon() {
 }
 
 function togglePlay() {
-    const state = player.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-        player.pauseVideo();
-    } else {
-        player.playVideo();
+    if (player && typeof player.getPlayerState === 'function') {
+        const state = player.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+            player.pauseVideo();
+        } else {
+            player.playVideo();
+        }
+        setTimeout(updatePlayPauseIcon, 100);
     }
-    setTimeout(updatePlayPauseIcon, 100); // Wait for state to update
 }
 
 function nextTrack() {
-    currentTrack = (currentTrack + 1) % tracksOld.length;
+    currentTrack = (currentTrack + 1) % tracks.length;
     loadTrack(currentTrack);
 }
 
 function prevTrack() {
-    currentTrack = (currentTrack - 1 + tracksOld.length) % tracksOld.length;
+    currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
     loadTrack(currentTrack);
 }
 
 function loadTrack(index) {
     currentTrack = index;
-    player.loadVideoById(tracksOld[currentTrack].id);
-    updateTrackUI(currentTrack);
-    updateDurationsInPlaylist();
+    if (player && typeof player.loadVideoById === 'function') {
+        player.loadVideoById(tracks[currentTrack].id);
+        updateTrackUI(currentTrack);
+    }
 }
 
 function updateTrackUI(index) {
-    const videoId = tracksOld[index].id;
+    const videoId = tracks[index].id;
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
         .then(res => res.json())
         .then(data => {
@@ -112,7 +139,7 @@ function formatDuration(seconds) {
 const trackListEl = document.getElementById('trackList');
 function renderPlaylist() {
     trackListEl.innerHTML = '';
-    tracksOld.forEach((track, i) => {
+    tracks.forEach((track, i) => {
         const el = document.createElement('div');
         el.className = 'track';
         el.innerHTML = `
@@ -130,7 +157,7 @@ function updateDurationsInPlaylist() {
     const currentTime = player ? player.getCurrentTime() : 0;
     const playerState = player ? player.getPlayerState() : -1;
 
-    if (tracksOld.every(t => t.duration !== null)) {
+    if (tracks.every(t => t.duration !== null)) {
         renderPlaylist();
         return;
     }
@@ -138,8 +165,9 @@ function updateDurationsInPlaylist() {
     let i = 0;
 
     function loadNextDuration() {
-        if (i >= tracksOld.length) {
-            loadTrack(currentIndex);
+        if (i >= tracks.length) {
+            player.loadVideoById(tracks[currentIndex].id);
+            updateTrackUI(currentIndex);
             if (player && player.seekTo) {
                 player.seekTo(currentTime, true);
                 if (playerState === YT.PlayerState.PLAYING) {
@@ -151,17 +179,17 @@ function updateDurationsInPlaylist() {
             renderPlaylist();
             return;
         }
-        if (tracksOld[i].duration !== null) {
+        if (tracks[i].duration !== null) {
             i++;
             loadNextDuration();
             return;
         }
-        player.loadVideoById(tracksOld[i].id);
+        player.loadVideoById(tracks[i].id);
         let tries = 0;
         const interval = setInterval(() => {
             let dur = player.getDuration();
             if (dur && dur > 0) {
-                tracksOld[i].duration = dur;
+                tracks[i].duration = dur;
                 clearInterval(interval);
                 i++;
                 loadNextDuration();
@@ -211,8 +239,5 @@ function stopProgressUpdater() {
     }
 }
 
-// Initial playlist render
 renderPlaylist();
-
-// Initial icon update
 document.addEventListener('DOMContentLoaded', updatePlayPauseIcon);
