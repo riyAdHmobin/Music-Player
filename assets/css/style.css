@@ -2,7 +2,7 @@ body {
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', sans-serif;
-    background: #f20052;
+    background: #000000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -46,8 +46,8 @@ body {
 
 .progress-ring circle {
     fill: none;
-    stroke: #f20052;
-    stroke-width: 6;
+    stroke: #ff3737;
+    stroke-width: 10;
     stroke-linecap: round;
     stroke-dasharray: 630;
     stroke-dashoffset: 630;
@@ -107,7 +107,7 @@ body {
 .play-btn {
     width: 60px;
     height: 60px;
-    background: #f20052;
+    background: #000000;
     color: white;
     font-size: 24px;
 }
@@ -147,7 +147,7 @@ body {
 }
 
 .track.active {
-    background: #f20052;
+    background: #000000;
     color: white;
 }
 
