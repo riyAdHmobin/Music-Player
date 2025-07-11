@@ -7,18 +7,12 @@ const radius = 100;
 const circumference = 2 * Math.PI * radius;
 circle.style.strokeDasharray = circumference;
 
-// const tracks = [
-//     { id: "kxopViU98Xo", title: "Starboy ft. Daft Punk", duration: null },
-//     { id: "M7lc1UVf-VE", title: "Random Track 2", duration: null },
-//     { id: "ScMzIvxBSi4", title: "Random Track 3", duration: null }
-// ];
-
 // YouTube API calls this automatically when ready
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '0',
         width: '0',
-        videoId: tracksOld[currentTrack].id,
+        videoId: tracks[currentTrack].id,
         events: {
             'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
@@ -67,24 +61,24 @@ function togglePlay() {
 }
 
 function nextTrack() {
-    currentTrack = (currentTrack + 1) % tracksOld.length;
+    currentTrack = (currentTrack + 1) % tracks.length;
     loadTrack(currentTrack);
 }
 
 function prevTrack() {
-    currentTrack = (currentTrack - 1 + tracksOld.length) % tracksOld.length;
+    currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
     loadTrack(currentTrack);
 }
 
 function loadTrack(index) {
     currentTrack = index;
-    player.loadVideoById(tracksOld[currentTrack].id);
+    player.loadVideoById(tracks[currentTrack].id);
     updateTrackUI(currentTrack);
     updateDurationsInPlaylist();
 }
 
 function updateTrackUI(index) {
-    const videoId = tracksOld[index].id;
+    const videoId = tracks[index].id;
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
         .then(res => res.json())
         .then(data => {
@@ -112,7 +106,7 @@ function formatDuration(seconds) {
 const trackListEl = document.getElementById('trackList');
 function renderPlaylist() {
     trackListEl.innerHTML = '';
-    tracksOld.forEach((track, i) => {
+    tracks.forEach((track, i) => {
         const el = document.createElement('div');
         el.className = 'track';
         el.innerHTML = `
@@ -130,7 +124,7 @@ function updateDurationsInPlaylist() {
     const currentTime = player ? player.getCurrentTime() : 0;
     const playerState = player ? player.getPlayerState() : -1;
 
-    if (tracksOld.every(t => t.duration !== null)) {
+    if (tracks.every(t => t.duration !== null)) {
         renderPlaylist();
         return;
     }
@@ -138,7 +132,7 @@ function updateDurationsInPlaylist() {
     let i = 0;
 
     function loadNextDuration() {
-        if (i >= tracksOld.length) {
+        if (i >= tracks.length) {
             loadTrack(currentIndex);
             if (player && player.seekTo) {
                 player.seekTo(currentTime, true);
@@ -151,17 +145,17 @@ function updateDurationsInPlaylist() {
             renderPlaylist();
             return;
         }
-        if (tracksOld[i].duration !== null) {
+        if (tracks[i].duration !== null) {
             i++;
             loadNextDuration();
             return;
         }
-        player.loadVideoById(tracksOld[i].id);
+        player.loadVideoById(tracks[i].id);
         let tries = 0;
         const interval = setInterval(() => {
             let dur = player.getDuration();
             if (dur && dur > 0) {
-                tracksOld[i].duration = dur;
+                tracks[i].duration = dur;
                 clearInterval(interval);
                 i++;
                 loadNextDuration();
