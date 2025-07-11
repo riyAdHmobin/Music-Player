@@ -39,6 +39,16 @@ function onPlayerStateChange(event) {
     } else {
         stopProgressUpdater();
     }
+    updatePlayPauseIcon();
+}
+
+function updatePlayPauseIcon() {
+    const icon = document.getElementById('playPauseIcon');
+    if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+        icon.className = 'fa fa-pause';
+    } else {
+        icon.className = 'fa fa-play';
+    }
 }
 
 function togglePlay() {
@@ -48,6 +58,7 @@ function togglePlay() {
     } else {
         player.playVideo();
     }
+    setTimeout(updatePlayPauseIcon, 100); // Wait for state to update
 }
 
 function nextTrack() {
@@ -197,3 +208,6 @@ function stopProgressUpdater() {
 
 // Initial playlist render
 renderPlaylist();
+
+// Initial icon update
+document.addEventListener('DOMContentLoaded', updatePlayPauseIcon);
