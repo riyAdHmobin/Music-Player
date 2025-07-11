@@ -13,25 +13,12 @@ circle.style.strokeDasharray = circumference;
 //     { id: "ScMzIvxBSi4", title: "Random Track 3", duration: null }
 // ];
 
-function initPlayer() {
-    renderPlaylist();
-    document.addEventListener('DOMContentLoaded', updatePlayPauseIcon);
-    // YouTube API will call onYouTubeIframeAPIReady automatically
-}
-
-if (window.loadTracksFromSheet) {
-    window.loadTracksFromSheet(initPlayer);
-} else {
-    // Fallback if tracks.js is not loaded
-    initPlayer();
-}
-
 // YouTube API calls this automatically when ready
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '0',
         width: '0',
-        videoId: window.tracks[currentTrack].id,
+        videoId: tracksOld[currentTrack].id,
         events: {
             'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
@@ -80,24 +67,24 @@ function togglePlay() {
 }
 
 function nextTrack() {
-    currentTrack = (currentTrack + 1) % window.tracks.length;
+    currentTrack = (currentTrack + 1) % tracksOld.length;
     loadTrack(currentTrack);
 }
 
 function prevTrack() {
-    currentTrack = (currentTrack - 1 + window.tracks.length) % window.tracks.length;
+    currentTrack = (currentTrack - 1 + tracksOld.length) % tracksOld.length;
     loadTrack(currentTrack);
 }
 
 function loadTrack(index) {
     currentTrack = index;
-    player.loadVideoById(window.tracks[currentTrack].id);
+    player.loadVideoById(tracksOld[currentTrack].id);
     updateTrackUI(currentTrack);
     updateDurationsInPlaylist();
 }
 
 function updateTrackUI(index) {
-    const videoId = window.tracks[index].id;
+    const videoId = tracksOld[index].id;
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
         .then(res => res.json())
         .then(data => {
@@ -125,7 +112,7 @@ function formatDuration(seconds) {
 const trackListEl = document.getElementById('trackList');
 function renderPlaylist() {
     trackListEl.innerHTML = '';
-    window.tracks.forEach((track, i) => {
+    tracksOld.forEach((track, i) => {
         const el = document.createElement('div');
         el.className = 'track';
         el.innerHTML = `
@@ -143,7 +130,7 @@ function updateDurationsInPlaylist() {
     const currentTime = player ? player.getCurrentTime() : 0;
     const playerState = player ? player.getPlayerState() : -1;
 
-    if (window.tracks.every(t => t.duration !== null)) {
+    if (tracksOld.every(t => t.duration !== null)) {
         renderPlaylist();
         return;
     }
@@ -151,7 +138,7 @@ function updateDurationsInPlaylist() {
     let i = 0;
 
     function loadNextDuration() {
-        if (i >= window.tracks.length) {
+        if (i >= tracksOld.length) {
             loadTrack(currentIndex);
             if (player && player.seekTo) {
                 player.seekTo(currentTime, true);
@@ -164,17 +151,17 @@ function updateDurationsInPlaylist() {
             renderPlaylist();
             return;
         }
-        if (window.tracks[i].duration !== null) {
+        if (tracksOld[i].duration !== null) {
             i++;
             loadNextDuration();
             return;
         }
-        player.loadVideoById(window.tracks[i].id);
+        player.loadVideoById(tracksOld[i].id);
         let tries = 0;
         const interval = setInterval(() => {
             let dur = player.getDuration();
             if (dur && dur > 0) {
-                window.tracks[i].duration = dur;
+                tracksOld[i].duration = dur;
                 clearInterval(interval);
                 i++;
                 loadNextDuration();
